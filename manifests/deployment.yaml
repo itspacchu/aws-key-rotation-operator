@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aws-key-rotation-reconciler
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aws-key-rotation-deployment
+  template:
+    metadata:
+      labels:
+        app: aws-key-rotation-deployment
+    spec:
+      serviceAccountName: "aws-key-rotation-sa"
+      containers:
+        - name: aws-key-rotation-container
+          image: registry.gitlab.com/itspacchu/zigram-images:aws-key-rotation-reconciler
+          imagePullPolicy: Always
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-secrets
+                  key: aws-access-key-id
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-secrets
+                  key: aws-secret-access-key
+      restartPolicy: Always
