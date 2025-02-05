@@ -18,6 +18,4 @@ WORKDIR /root/
 
 COPY --from=builder /app/aws-key-rotation .
 
-RUN apk add aws-cli
-
 CMD ["./aws-key-rotation"]
