@@ -1,10 +1,15 @@
 package cmd
 
 import (
+	"context"
+	"time"
+
 	"github.com/charmbracelet/log"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 )
 
 func DeploymentAdded(inf interface{}) {
@@ -65,4 +70,40 @@ func DeploymentUpdated(clientset *kubernetes.Clientset, old interface{}, new int
 func DeploymentDeleted(inf interface{}) {
 	deployment := inf.(*appsv1.Deployment)
 	log.Warnf("Deployment deleted: %s/%s", deployment.Namespace, deployment.Name)
+}
+
+func HandlePodRestarts(clientset *kubernetes.Clientset, ctx context.Context) {
+	factory := informers.NewSharedInformerFactory(clientset, time.Hour*24)
+	podInformer := factory.Core().V1().Pods().Informer()
+
+	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			PodUpdated(clientset, oldObj, newObj)
+		},
+	})
+
+	factory.Start(ctx.Done())
+
+	if !cache.WaitForCacheSync(ctx.Done(), podInformer.HasSynced) {
+		log.Fatalf("failed to sync cache")
+	}
+}
+
+func HandleDeploymentChanges(clientset *kubernetes.Clientset, ctx context.Context) {
+	factory := informers.NewSharedInformerFactory(clientset, time.Hour*24)
+	deploymentInformer := factory.Apps().V1().Deployments().Informer()
+
+	deploymentInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: DeploymentAdded,
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			DeploymentUpdated(clientset, oldObj, newObj)
+		},
+		DeleteFunc: DeploymentDeleted,
+	})
+
+	factory.Start(ctx.Done())
+
+	if !cache.WaitForCacheSync(ctx.Done(), deploymentInformer.HasSynced) {
+		log.Fatalf("failed to sync cache")
+	}
 }

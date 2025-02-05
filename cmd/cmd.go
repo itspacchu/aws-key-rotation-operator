@@ -14,10 +14,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 )
@@ -56,42 +54,6 @@ func Run() error {
 
 	wait.Until(func() {}, time.Second, ctx.Done())
 	return nil
-}
-
-func HandlePodRestarts(clientset *kubernetes.Clientset, ctx context.Context) {
-	factory := informers.NewSharedInformerFactory(clientset, time.Hour*24)
-	podInformer := factory.Core().V1().Pods().Informer()
-
-	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			PodUpdated(clientset, oldObj, newObj)
-		},
-	})
-
-	factory.Start(ctx.Done())
-
-	if !cache.WaitForCacheSync(ctx.Done(), podInformer.HasSynced) {
-		log.Fatalf("failed to sync cache")
-	}
-}
-
-func HandleDeploymentChanges(clientset *kubernetes.Clientset, ctx context.Context) {
-	factory := informers.NewSharedInformerFactory(clientset, time.Hour*24)
-	deploymentInformer := factory.Apps().V1().Deployments().Informer()
-
-	deploymentInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: DeploymentAdded,
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			DeploymentUpdated(clientset, oldObj, newObj)
-		},
-		DeleteFunc: DeploymentDeleted,
-	})
-
-	factory.Start(ctx.Done())
-
-	if !cache.WaitForCacheSync(ctx.Done(), deploymentInformer.HasSynced) {
-		log.Fatalf("failed to sync cache")
-	}
 }
 
 func ApplySecretObject(token string, namespace string, accountID string, region string, clientset *kubernetes.Clientset) error {
