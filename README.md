@@ -17,7 +17,9 @@ A simple utility to do aws key rotation for Amazon's ECR Private repositories. U
 Create secret with AWS credentials:
 
 ```sh
-kubectl -n kube-system create secret generic aws-credentials --from-file=credentials=/home/itspacchu/.aws/credentials
+kubectl create secret generic aws-credentials \
+  --from-literal=aws-access-key-id=ABCD \
+  --from-literal=aws-secret-access-key=xyz/abc
 ```
 
 Apply manifest files in `./manifests`
